@@ -48,6 +48,9 @@ Desktop.ini
 *.swp
 *.swo
 
+# FUSE filesystem artifacts (Cowork sandbox)
+.fuse_hidden*
+
 # Camoufox browser cache
 .local-chromium/
 .local-firefox/
