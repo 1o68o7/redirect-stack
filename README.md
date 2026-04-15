@@ -10,6 +10,7 @@ A Python CLI that automates the full SEO redirect migration pipeline — from ra
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [Cowork Skill — no-code mode](#cowork-skill--no-code-mode)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
@@ -37,6 +38,42 @@ When migrating a website, every old URL must be explicitly redirected (301) to i
 
 ---
 
+## Cowork Skill — no-code mode
+
+redirect-stack ships with a [Claude Cowork](https://claude.ai) skill that runs the full pipeline
+on your behalf — no terminal required.
+
+**What it does:** drop your CSV files into the chat → Claude asks a few questions (domains, mode,
+formats) → executes the pipeline → delivers ready-to-use output files directly in the conversation.
+
+**How to install:**
+
+1. Clone the repo and select the folder in Cowork
+2. Double-click `skill/redirectmap.skill` to install it
+3. Start a new conversation — the skill auto-activates when you mention redirects or URL migration
+
+The skill auto-installs redirectmap in the Cowork sandbox on first use. No manual configuration
+needed. HTTP mode runs entirely inside Cowork; browser mode (camoufox) requires running from your
+local terminal.
+
+**Sharing with teammates:** each teammate clones the repo, installs the skill, and is ready to go.
+The skill dynamically discovers the repo location — no hardcoded paths, works on any machine.
+
+```
+redirect-stack/
+└── skill/
+    ├── SKILL.md            ← skill source (versioned)
+    └── redirectmap.skill   ← packaged skill file (gitignored, rebuild with package_skill.py)
+```
+
+To rebuild the `.skill` package after editing `SKILL.md`:
+```bash
+cd /path/to/skill-creator
+python -m scripts.package_skill /path/to/redirect-stack/skill ./redirect-stack/skill
+```
+
+---
+
 ## Architecture
 
 ```
@@ -61,6 +98,9 @@ redirect-stack/
 │       ├── htaccess.py         ← Apache mod_rewrite
 │       ├── nginx.py            ← Nginx map{} + server{}
 │       └── json_export.py      ← Machine-readable JSON
+├── skill/
+│   ├── SKILL.md                ← Cowork skill source
+│   └── redirectmap.skill       ← packaged skill (gitignored)
 ├── pyproject.toml
 ├── config.example.yaml
 ├── install.sh
@@ -101,6 +141,12 @@ chmod +x install.sh
 ```bash
 source .venv/bin/activate
 redirectmap --version
+```
+
+**Cowork skill install (optional — no-code mode):**
+```bash
+# After cloning, open Cowork → select the redirect-stack folder
+# → double-click skill/redirectmap.skill to install
 ```
 
 ---
