@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Database (contient les données crawlées — à ne pas versionner)
+*.db
+*.db-shm
+*.db-wal
+
+# Output files (générés par le pipeline)
+output/
+
+# Config locale (peut contenir des domaines/proxies sensibles)
+config.yaml
+
+# Logs
+*.log
+logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Camoufox browser cache
+.local-chromium/
+.local-firefox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage / test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

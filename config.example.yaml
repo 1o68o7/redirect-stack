@@ -1,0 +1,62 @@
+# redirectmap — configuration example
+# Copier en config.yaml et ajuster selon le projet
+
+crawl:
+  concurrency: 10          # requêtes simultanées (browser: 2 recommandé, max 5)
+  delay: 1.0               # délai de politesse entre requêtes (secondes)
+  timeout: 60              # timeout par requête (secondes) — 60s recommandé pour le mode navigateur
+  max_depth: 5             # profondeur maximale de crawl depuis l'URL de départ
+  max_pages: 50000         # nombre maximum de pages par site
+  user_agent: "redirectmap/1.1 (+https://github.com/yourorg/redirectmap)"
+  respect_robots: true
+  follow_redirects: true
+  allowed_content_types:
+    - "text/html"
+  # Proxies pour le mode navigateur (optionnel)
+  # proxies:
+  #   - "http://proxy1:8080"
+  #   - "http://proxy2:8080"
+
+classify:
+  n_clusters: 5            # nombre de clusters K-Means (= nb d'intentions SEO)
+  max_features: 5000       # TF-IDF : taille max du vocabulaire
+  min_df: 2                # TF-IDF : fréquence doc minimale (ignorer hapax)
+  max_df: 0.85             # TF-IDF : fréquence doc maximale (ignorer stop-words domaine)
+  language: "french"       # stop-words : "french" ou "english"
+
+  # Rôle dans le matching (non optionnel) :
+  #   - Tiebreaker entre candidats de score cosine proche
+  #   - Bonus confiance si source_intent == target_intent
+  #   - Malus (low) si transactionnelle → informationnelle ou divers
+  #   - Alertes intent_mismatch visibles dans les exports
+
+match:
+  fuzzy_threshold: 80      # score rapidfuzz minimum pour un match path (0–100)
+  cosine_threshold: 0.30   # score cosine minimum pour un match sémantique (0.0–1.0)
+  fallback_url: "/"        # URL de repli quand aucun match trouvé
+
+  # Fallback hiérarchique :
+  #   /fr/produits/robot/cook-expert  →
+  #     L1: /fr/produits/robot   (score 40, confiance medium)
+  #     L2: /fr/produits          (score 25, confiance low)
+  #     L3: /fr                   (score 15, confiance low)
+  #     root: /                   (score  5, confiance low)
+  #     fallback_url              (score  0, confiance low)
+
+  batch_size: 1000         # URLs traitées par batch (mémoire)
+
+export:
+  output_dir: "./output"
+  # Formats disponibles : csv, excel, htaccess, nginx, json
+  # Conseil : ne générer que ce dont vous avez besoin.
+  #   csv     — toujours utile, très léger
+  #   excel   — pour revue manuelle (plus lent sur 100k URLs)
+  #   htaccess — Apache mod_rewrite 301, prêt à déployer
+  #   nginx   — map {} + if {} Nginx, inclure dans server block
+  #   json    — machine-readable, pour intégrations tierces
+  formats:
+    - csv
+    - htaccess
+
+  source_domain: ""        # ex: https://old.example.com  (pour htaccess/nginx)
+  target_domain: ""        # ex: https://new.example.com  (pour htaccess/nginx full URL)

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redirectmap"
+version = "1.1.0"
+description = "URL crawl → classify → match → redirect plan generator"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "httpx[http2]>=0.27",           # crawler HTTP léger (mode sans navigateur)
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "rapidfuzz>=3.6",               # matching fuzzy URL paths
+    "scikit-learn>=1.4",            # TF-IDF + KMeans + cosine similarity
+    "pandas>=2.2",
+    "openpyxl>=3.1",                # export Excel
+    "tqdm>=4.66",
+    "pyyaml>=6.0",
+    "aiofiles>=23.2",
+    "numpy>=1.26",
+    "rich>=13.7",                   # CLI output enrichi
+]
+
+[project.optional-dependencies]
+browser = [
+    "camoufox[geoip]>=0.4",         # crawler navigateur stealth Firefox
+]
+all = [
+    "redirectmap[browser]",
+]
+
+[project.scripts]
+redirectmap = "redirectmap.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["redirectmap*"]

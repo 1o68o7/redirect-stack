@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  redirectmap:
+    build: .
+    image: redirectmap:latest
+    volumes:
+      - ./data/input:/data/input      # put your CSV url files here
+      - ./data/output:/data/output    # exported plans land here
+      - ./data/db:/data/db            # SQLite DB persists here
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Override CMD to run the full pipeline:
+    # docker compose run redirectmap run \
+    #   --source-urls /data/input/source.csv \
+    #   --target-urls /data/input/target.csv \
+    #   --db /data/db/redirect.db \
+    #   --output /data/output \
+    #   --fallback https://new.example.com \
+    #   --source-domain https://old.example.com \
+    #   --target-domain https://new.example.com
