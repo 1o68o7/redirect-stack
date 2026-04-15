@@ -48,9 +48,6 @@ Desktop.ini
 *.swp
 *.swo
 
-# Skill package (artefact compilé — généré depuis skill/SKILL.md)
-skill/*.skill
-
 # FUSE filesystem artifacts (Cowork sandbox)
 .fuse_hidden*
 
