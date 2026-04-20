@@ -38,7 +38,7 @@ _HEADER = """\
 # ─────────────────────────────────────────────────────────────────────────────
 # redirectmap — Apache .htaccess redirect rules
 # Generated: {ts}
-# Total rules: {total}
+# Total rules: {total}{vhost_note}
 # ─────────────────────────────────────────────────────────────────────────────
 # Instructions:
 #   1. Place this block inside your <VirtualHost> or .htaccess file
@@ -50,8 +50,29 @@ RewriteEngine On
 
 """
 
+_VHOST_NOTE = "\n# Mode: vhost — cible dynamique via %{HTTP_HOST} (portable staging/prod)"
 
-def export_htaccess(db_path: str, output_dir: str, source_domain: str = "", target_domain: str = "") -> Path:
+
+def _to_vhost_target(tgt_url: str, target_domain: str) -> str:
+    """Replace the fixed target origin with %{HTTP_HOST} so rules work on any vhost."""
+    if target_domain:
+        from urllib.parse import urlparse as _up
+        parsed = _up(target_domain.rstrip("/"))
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if tgt_url.startswith(origin):
+            return "https://%{HTTP_HOST}" + tgt_url[len(origin):]
+    if tgt_url.startswith("/"):
+        return "https://%{HTTP_HOST}" + tgt_url
+    return tgt_url
+
+
+def export_htaccess(
+    db_path: str,
+    output_dir: str,
+    source_domain: str = "",
+    target_domain: str = "",
+    vhost: bool = False,
+) -> Path:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -70,6 +91,10 @@ def export_htaccess(db_path: str, output_dir: str, source_domain: str = "", targ
         if tgt_url.startswith("/") and target_domain:
             tgt_url = target_domain.rstrip("/") + tgt_url
 
+        # vhost mode: replace fixed origin with %{HTTP_HOST}
+        if vhost:
+            tgt_url = _to_vhost_target(tgt_url, target_domain)
+
         if row["match_type"] == "fallback":
             fallbacks.append(f"RewriteRule ^{_escape_regex(src_path.lstrip('/'))}$ {tgt_url} [R=301,L]")
             continue
@@ -83,7 +108,11 @@ def export_htaccess(db_path: str, output_dir: str, source_domain: str = "", targ
             rules_low.append(rule)
 
     total = len(rules_high) + len(rules_medium) + len(rules_low) + len(fallbacks)
-    lines = [_HEADER.format(ts=datetime.now().isoformat(timespec="seconds"), total=total)]
+    lines = [_HEADER.format(
+        ts=datetime.now().isoformat(timespec="seconds"),
+        total=total,
+        vhost_note=_VHOST_NOTE if vhost else "",
+    )]
 
     if rules_high:
         lines.append("# ── High confidence (exact / strong cosine / fuzzy ≥85) ──────────────────\n")

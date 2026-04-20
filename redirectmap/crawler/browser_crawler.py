@@ -297,9 +297,9 @@ class BrowserCrawler:
         if not self._is_allowed(url):
             return None
 
-        logger.info("→ Browser : %s", url)
         async with sem:
             await asyncio.sleep(self.delay)
+            logger.info("→ Browser : %s", url)
             page = None
             try:
                 page = await browser.new_page()

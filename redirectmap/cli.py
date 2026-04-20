@@ -241,8 +241,11 @@ def match(db, fallback, fuzzy_threshold, cosine_threshold, batch_size, cfg_path)
                    "Défaut: csv uniquement (le plus léger).")
 @click.option("--source-domain",  default="", help="ex: https://old.example.com")
 @click.option("--target-domain",  default="", help="ex: https://new.example.com")
+@click.option("--vhost", is_flag=True, default=False,
+              help="Mode vhost : remplace le domaine cible par %%{HTTP_HOST} (htaccess) "
+                   "ou $host (nginx). Utile pour déployer les mêmes règles sur staging et prod.")
 @click.option("--config",         "cfg_path", default=None)
-def export(db, output, formats, source_domain, target_domain, cfg_path):
+def export(db, output, formats, source_domain, target_domain, vhost, cfg_path):
     """
     Exporte le plan de redirection dans les formats demandés.
 
@@ -255,6 +258,13 @@ def export(db, output, formats, source_domain, target_domain, cfg_path):
       json      — Format machine-readable pour intégrations externes
 
     \b
+    Option --vhost :
+      Génère des règles portables sans domaine cible codé en dur.
+      htaccess : RewriteRule ^old-path$ https://%{HTTP_HOST}/new-path [R=301,L]
+      nginx    : return 301 https://$host/new-path;
+      Idéal pour les projets multi-environnements (staging, recette, prod).
+
+    \b
     Conseil ressources :
       Pour 50k+ URLs, générer seulement les formats nécessaires.
       Excel est plus lent que CSV. htaccess + nginx sont rapides.
@@ -265,7 +275,8 @@ def export(db, output, formats, source_domain, target_domain, cfg_path):
     tgt_domain = target_domain or exp_cfg.get("target_domain", "")
     fmt_list = _parse_formats(formats)
 
-    console.print(f"[cyan]Export → [bold]{output}[/bold] | formats : {', '.join(fmt_list)}[/cyan]")
+    vhost_label = " [bold magenta]+vhost[/bold magenta]" if vhost else ""
+    console.print(f"[cyan]Export → [bold]{output}[/bold] | formats : {', '.join(fmt_list)}{vhost_label}[/cyan]")
 
     if "csv" in fmt_list:
         from redirectmap.exporter.csv_export import export_csv
@@ -279,12 +290,12 @@ def export(db, output, formats, source_domain, target_domain, cfg_path):
 
     if "htaccess" in fmt_list:
         from redirectmap.exporter.htaccess import export_htaccess
-        p = export_htaccess(db, output, src_domain, tgt_domain)
+        p = export_htaccess(db, output, src_domain, tgt_domain, vhost=vhost)
         console.print(f"  ✓ htaccess → {p}")
 
     if "nginx" in fmt_list:
         from redirectmap.exporter.nginx import export_nginx
-        p_map, p_srv = export_nginx(db, output, src_domain, tgt_domain)
+        p_map, p_srv = export_nginx(db, output, src_domain, tgt_domain, vhost=vhost)
         console.print(f"  ✓ Nginx    → {p_map} + {p_srv}")
 
     if "json" in fmt_list:
@@ -309,10 +320,12 @@ def export(db, output, formats, source_domain, target_domain, cfg_path):
               help="Formats d'export (csv, excel, htaccess, nginx, json). Défaut: csv.")
 @click.option("--browser",       is_flag=True, default=False,
               help="Mode navigateur camoufox (recommandé pour e-commerce).")
+@click.option("--vhost",         is_flag=True, default=False,
+              help="Mode vhost : règles htaccess/nginx portables sans domaine cible codé en dur.")
 @click.option("--no-sitemaps",   is_flag=True)
 @click.option("--config",        "cfg_path", default=None)
 def run(source_urls, target_urls, db, output, fallback, source_domain, target_domain,
-        formats, browser, no_sitemaps, cfg_path):
+        formats, browser, vhost, no_sitemaps, cfg_path):
     """Pipeline complet : crawl source + target → classify → match → export."""
     cfg = load_config(cfg_path)
     ctx = click.get_current_context()
@@ -340,7 +353,7 @@ def run(source_urls, target_urls, db, output, fallback, source_domain, target_do
     ctx.invoke(export,
                db=db, output=output, formats=formats,
                source_domain=source_domain, target_domain=target_domain,
-               cfg_path=cfg_path)
+               vhost=vhost, cfg_path=cfg_path)
 
     console.rule("[bold green]✓ Pipeline terminé[/bold green]")
 
