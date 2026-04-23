@@ -47,31 +47,48 @@ complet à votre place — sans ligne de commande.
 (domaines, mode, formats) → lance le pipeline → livre les fichiers de sortie directement dans
 la conversation.
 
-**Comment l'installer :**
+### Installation (Windows — 3 étapes)
 
-1. Cloner le repo et sélectionner le dossier dans Cowork
-2. Double-cliquer sur `skill/redirectmap.skill` pour l'installer
-3. Démarrer une nouvelle conversation — le skill s'active automatiquement dès que vous mentionnez des redirections ou une migration d'URLs
+1. **Installer** — double-cliquer sur `install.bat` (ou `install.bat --browser` pour les sites e-commerce)
+2. **Ouvrir Claude Cowork** → cliquer "Sélectionner un dossier" → choisir le dossier `redirect-stack`
+3. **Installer le skill** — double-cliquer sur `skill/redirectmap.skill`
 
-Le skill installe automatiquement redirectmap dans le sandbox Cowork au premier usage. Aucune
-configuration manuelle nécessaire. Le mode HTTP tourne entièrement dans Cowork ; le mode navigateur
-(camoufox) nécessite une exécution depuis le terminal local.
+C'est tout. Démarrez une nouvelle conversation et dites *"génère un plan de redirections"* — Claude s'occupe du reste.
 
-**Partage avec des collègues :** chaque collègue clone le repo, installe le skill, et c'est prêt.
-Le skill détecte dynamiquement l'emplacement du repo — aucun chemin codé en dur, fonctionne sur
-toutes les machines.
+> **Mode HTTP** (sites classiques) tourne entièrement dans Cowork — aucun terminal requis.  
+> **Mode navigateur** (e-commerce, sites bot-protégés) nécessite de lancer le crawl en local, puis
+> de redonner le fichier `redirect.db` à Claude pour les étapes suivantes.
+
+### Installation (Linux / Mac)
+
+```bash
+./install.sh           # Mode HTTP
+./install.sh --browser # Avec support camoufox
+# Puis : ouvrir Cowork → sélectionner le dossier → double-cliquer skill/redirectmap.skill
+```
+
+### Partage avec des collègues
+
+Chaque collègue exécute `install.bat` (Windows) ou `install.sh` (Linux/Mac), puis installe le skill.
+Le skill détecte dynamiquement l'emplacement du repo — aucun chemin codé en dur, fonctionne sur toutes les machines.
 
 ```
 redirect-stack/
 └── skill/
     ├── SKILL.md            ← source du skill (versionné)
-    └── redirectmap.skill   ← skill packagé (gitignored, à reconstruire avec package_skill.py)
+    └── redirectmap.skill   ← skill packagé (versionné — installer par double-clic)
 ```
 
 Pour reconstruire le package `.skill` après modification du `SKILL.md` :
-```bash
-cd /chemin/vers/skill-creator
-python -m scripts.package_skill /chemin/vers/redirect-stack/skill ./redirect-stack/skill
+```python
+# Depuis la racine du repo :
+python3 -c "
+import zipfile, pathlib
+skill_dir = pathlib.Path('skill')
+with zipfile.ZipFile(skill_dir / 'redirectmap.skill', 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+    zf.write(skill_dir / 'SKILL.md', 'SKILL.md')
+print('skill/redirectmap.skill mis à jour')
+"
 ```
 
 ---
@@ -115,14 +132,38 @@ Toutes les données de crawl, classifications et règles de redirection sont sto
 
 ## Installation
 
-**Prérequis :** Python 3.11+
+**Prérequis :** Python 3.10+
+
+### Windows (recommandé — sans terminal)
+
+```
+1. git clone https://github.com/1o68o7/redirect-stack.git
+   (ou télécharger et décompresser le ZIP depuis GitHub)
+2. Double-cliquer sur install.bat
+   (ou install.bat --browser pour les sites e-commerce / JS)
+3. Suivre les instructions à l'écran
+```
+
+`install.bat` détecte Python automatiquement, crée le `.venv`, installe toutes les dépendances
+et affiche les prochaines étapes pour Cowork et le terminal.
+
+### Linux / Mac
+
+```bash
+git clone https://github.com/1o68o7/redirect-stack.git
+cd redirect-stack
+chmod +x install.sh
+./install.sh           # Mode HTTP
+./install.sh --browser # Avec support camoufox
+```
+
+### Manuel (tout OS)
 
 ```bash
 git clone https://github.com/1o68o7/redirect-stack.git
 cd redirect-stack
 
-# Mode HTTP uniquement (rapide, sans navigateur)
-python3.11 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate       # Windows : .venv\Scripts\activate
 pip install -e .
 
@@ -131,24 +172,10 @@ pip install -e ".[browser]"
 python -m camoufox fetch        # Télécharge Firefox stealth ~100MB (une seule fois)
 ```
 
-Ou via le script automatisé (Ubuntu/Debian) :
-
-```bash
-chmod +x install.sh
-./install.sh           # Mode HTTP
-./install.sh --browser # Avec support camoufox
-```
-
 **Toujours activer le venv avant utilisation :**
 ```bash
-source .venv/bin/activate
+source .venv/bin/activate   # Windows : .venv\Scripts\activate
 redirectmap --version
-```
-
-**Installation du skill Cowork (optionnel — mode sans terminal) :**
-```bash
-# Après le clone, ouvrir Cowork → sélectionner le dossier redirect-stack
-# → double-cliquer sur skill/redirectmap.skill pour installer
 ```
 
 ---
@@ -199,6 +226,9 @@ redirectmap run [OPTIONS]
   --formats TEXT         Formats d'export, séparés par virgule      [défaut: csv]
                          Valeurs : csv, excel, htaccess, nginx, json
   --browser              Mode navigateur camoufox (JS, e-commerce)
+  --vhost                Règles portables staging/prod : utilise %{HTTP_HOST} (htaccess)
+                         ou $host (nginx) au lieu du domaine cible codé en dur.
+                         Déployez les mêmes règles sur staging et prod sans modification.
   --no-sitemaps          Désactiver la découverte de sitemaps
   --config TEXT          Chemin vers config.yaml
 ```
@@ -267,6 +297,7 @@ redirectmap export [OPTIONS]
   --formats / -f TEXT    [défaut: csv]
   --source-domain TEXT
   --target-domain TEXT
+  --vhost                Règles portables staging/prod (voir --vhost dans run)
   --config TEXT
 ```
 
@@ -545,11 +576,40 @@ RewriteRule ^ancien/chemin$ https://nouveau-site.com/meilleur-match [R=301,L]
 
 À placer dans `<VirtualHost>` ou `.htaccess`. Nécessite `mod_rewrite` activé (`a2enmod rewrite`).
 
+**Mode `--vhost`** — les règles fonctionnent sur n'importe quel hostname (staging, prod, recette) sans modification :
+
+```apache
+# Sans --vhost (domaine codé en dur) :
+RewriteRule ^ancien-chemin$ https://nouveau-site.com/nouveau-chemin [R=301,L]
+
+# Avec --vhost (domaine dynamique) :
+RewriteRule ^ancien-chemin$ https://%{HTTP_HOST}/nouveau-chemin [R=301,L]
+```
+
 ### Nginx (`--formats nginx`)
 
 Génère deux fichiers :
-- `redirect_map.conf` — bloc `map $request_uri $redirect_target { ... }`
-- `redirect_server.conf` — bloc `server {}` avec la condition `if`
+- `redirect_plan_map.conf` — bloc `map $request_uri $redirect_uri { ... }` (à inclure dans le contexte `http`)
+- `redirect_plan_server.conf` — bloc `if` pour déclencher la redirection (à inclure dans le bloc `server`)
+
+```nginx
+# nginx.conf (contexte http) :
+include /chemin/vers/redirect_plan_map.conf;
+
+# config du site (bloc server) :
+server {
+  include /chemin/vers/redirect_plan_server.conf;
+}
+```
+
+**Mode `--vhost`** — la map retourne uniquement le chemin, le bloc server utilise `$host` :
+
+```nginx
+# redirect_plan_server.conf avec --vhost :
+if ($redirect_path) {
+    return 301 https://$host$redirect_path;
+}
+```
 
 ### JSON (`--formats json`)
 
@@ -663,8 +723,10 @@ redirectmap match --db redirect.db \
   --cosine-threshold 0.25
 redirectmap export --db redirect.db --formats csv,htaccess --output ./output
 
-# Relancer uniquement l'export (format différent)
-redirectmap export --db redirect.db --formats excel,nginx --output ./output
+# Relancer uniquement l'export (format différent, avec vhost)
+redirectmap export --db redirect.db --formats excel,nginx --vhost \
+  --source-domain https://ancien-site.com --target-domain https://nouveau-site.com \
+  --output ./output
 
 # Reclassifier (n_clusters ou langue modifiés)
 sqlite3 redirect.db "DELETE FROM classifications;"

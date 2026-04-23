@@ -52,47 +52,58 @@ redirectmap --version
 echo "READY: REPO=$REPO | DOCS=$DOCS | UPLOADS=$UPLOADS"
 ```
 
-If `REPO` is empty, the user hasn't cloned the repo yet. Tell them:
-> "Merci de cloner le repo d'abord : `git clone https://github.com/1o68o7/redirect-stack.git`
-> puis de sélectionner ce dossier dans Cowork."
+**Si `REPO` est vide**, le repo n'est pas accessible. Dire à l'utilisateur :
+> "Pour utiliser ce skill, clonez d'abord le repo puis sélectionnez ce dossier dans Cowork :
+> 1. Dans un terminal : `git clone https://github.com/1o68o7/redirect-stack.git`
+> 2. Ou téléchargez le ZIP depuis GitHub et décompressez-le
+> 3. Dans Cowork : cliquez 'Sélectionner un dossier' et choisissez le dossier `redirect-stack`
+> 4. Relancez votre demande"
 
 ---
 
 ## Phase 1 — Gather information (use AskUserQuestion)
 
-Once bootstrap is confirmed, ask:
+**Avant de poser des questions, inspecter les uploads :**
+```bash
+ls -lh "$UPLOADS/" 2>/dev/null || echo "Pas de fichiers uploadés"
+```
 
-1. **Fichiers CSV** — source (ancien site) et cible (nouveau site) déjà uploadés ?
-   → Check `$UPLOADS/` for recently uploaded files before asking
+Poser une seule question groupée avec AskUserQuestion (éviter les allers-retours) :
+
+1. **Fichiers CSV** — source (ancien site) et cible (nouveau site)
+   - Si des CSV sont dans `$UPLOADS/`, les proposer directement
+   - Sinon : "Uploadez vos fichiers CSV d'URLs (exports Screaming Frog ou sitemap)"
 2. **Domaine source** — ex: `https://ancien-site.com`
-3. **Domaine cible** — ex: `https://nouveau-site.com`
+3. **Domaine cible** — ex: `https://nouveau-site.com` (peut être identique si restructuration interne)
 4. **Type de site** — Simple (HTTP) ou E-commerce/JS/bot-protection (Navigateur) ?
 5. **Formats d'export** — Proposer `csv,htaccess` par défaut
 6. **URL de repli** — Si aucun match trouvé (défaut : domaine cible)
+7. **Mode vhost ?** — "Les règles doivent-elles fonctionner sur staging ET prod sans modification ?" → si oui, ajouter `--vhost`
 
 ---
 
 ## Phase 2 — Crawl mode decision
 
 **HTTP mode** (default) — use when:
-- Complete URL lists already available (Screaming Frog, sitemap export)
-- Simple CMS: WordPress, Drupal, static site
-- Large sites where speed matters (10k–50k URLs)
+- Fichiers CSV déjà disponibles (Screaming Frog, export sitemap)
+- CMS simple : WordPress, Drupal, site statique
+- Grands sites (10k–50k URLs) où la vitesse compte
 
 **Browser mode (`--browser`)** — use when:
-- E-commerce: PrestaShop, Magento, Shopify, WooCommerce
-- JS-rendered content or lazy loading
-- Bot protection: Cloudflare, DataDome, PerimeterX
+- E-commerce : PrestaShop, Magento, Shopify, WooCommerce
+- Contenu rendu JS ou lazy loading
+- Protection anti-bot : Cloudflare, DataDome, PerimeterX
 
-> ⚠️ Browser mode requires `camoufox` installed on the user's machine (not available in sandbox).
-> If browser mode is needed: provide the Windows terminal command instead of running it yourself,
-> and offer to run the classify + match + export steps once the user has crawled locally.
+> ⚠️ Browser mode = camoufox requis sur la machine de l'utilisateur (pas disponible dans le sandbox Cowork).
+> Dans ce cas :
+> 1. Donner la commande PowerShell à exécuter localement (voir Phase 3)
+> 2. Proposer de reprendre les étapes classify + match + export une fois le crawl terminé
 
 ---
 
 ## Phase 3 — Execute the pipeline
 
-### Set up environment variables (reuse bootstrap values)
+### Variables d'environnement (à re-déclarer dans chaque appel bash)
 ```bash
 export PATH="$PATH:$HOME/.local/bin"
 SANDBOX_ROOT=$(find /sessions/*/mnt -maxdepth 0 -type d 2>/dev/null | head -1)
@@ -105,17 +116,21 @@ WORKDIR="$REPO"
 OUTPUT="$WORKDIR/output"
 ```
 
-### Check uploaded files
+### Vérifier les fichiers uploadés
 ```bash
 ls -lh "$UPLOADS/"
 ```
 
-### Wipe DB (always start fresh)
+> ⚠️ **Erreur fréquente — "Fichier introuvable"** : les CSV doivent être uploadés dans Cowork
+> (glisser-déposer dans la conversation) OU être dans le dossier sélectionné.
+> Ne jamais utiliser un chemin Windows comme `--source-urls` — utiliser `$UPLOADS/nom_fichier.csv`.
+
+### Supprimer la DB précédente (toujours repartir à zéro)
 ```bash
 rm -f "$WORKDIR/redirect.db"
 ```
 
-### Run — HTTP mode
+### Run — HTTP mode (dans le sandbox Cowork)
 ```bash
 redirectmap run \
   --source-urls "$UPLOADS/<source_file>" \
@@ -127,23 +142,58 @@ redirectmap run \
   --output "$OUTPUT"
 ```
 
-### Run — Browser mode (only if camoufox available on user machine)
-Provide this command for the user to run in their Windows terminal:
+Avec `--vhost` (staging/prod portables) :
+```bash
+redirectmap run \
+  --source-urls "$UPLOADS/<source_file>" \
+  --target-urls "$UPLOADS/<target_file>" \
+  --source-domain "<source_domain>" \
+  --target-domain "<target_domain>" \
+  --fallback "<fallback_url>" \
+  --formats "<formats>" \
+  --vhost \
+  --output "$OUTPUT"
+```
+
+### Run — Browser mode (commande à donner à l'utilisateur pour son terminal Windows)
 ```powershell
-cd C:\path\to\redirect-stack
+cd C:\chemin\vers\redirect-stack
 .venv\Scripts\activate
 redirectmap run `
-  --source-urls source.csv `
-  --target-urls target.csv `
+  --source-urls "C:\chemin\vers\source.csv" `
+  --target-urls "C:\chemin\vers\target.csv" `
   --browser `
   --source-domain https://ancien-site.com `
   --target-domain https://nouveau-site.com `
   --fallback https://nouveau-site.com `
   --formats csv,htaccess `
-  --output ./output
+  --output .\output
 ```
 
-### Stats after run
+Avec `--vhost` :
+```powershell
+redirectmap run `
+  --source-urls "C:\chemin\vers\source.csv" `
+  --target-urls "C:\chemin\vers\target.csv" `
+  --browser `
+  --source-domain https://ancien-site.com `
+  --target-domain https://nouveau-site.com `
+  --fallback https://nouveau-site.com `
+  --formats csv,htaccess `
+  --vhost `
+  --output .\output
+```
+
+> Une fois le crawl browser terminé, l'utilisateur peut uploader la `redirect.db` dans Cowork
+> et Claude prend le relais pour classify + match + export :
+> ```bash
+> redirectmap classify --db "$UPLOADS/redirect.db"
+> redirectmap match --db "$UPLOADS/redirect.db" --fallback "<fallback>"
+> redirectmap export --db "$UPLOADS/redirect.db" --formats csv,htaccess --vhost --output "$OUTPUT" \
+>   --source-domain "<source>" --target-domain "<target>"
+> ```
+
+### Stats après le run
 ```bash
 redirectmap stats --db "$WORKDIR/redirect.db"
 ```
@@ -152,26 +202,27 @@ redirectmap stats --db "$WORKDIR/redirect.db"
 
 ## Phase 4 — Deliver output files
 
-Copy results to Documents root for easy access:
 ```bash
-cp "$OUTPUT"/* "$DOCS/"
+cp "$OUTPUT"/* "$DOCS/" 2>/dev/null || true
 ```
 
-Then present with `computer://` links. Build the Windows path dynamically:
-- Find the Windows username from the sandbox path: `echo $SANDBOX_ROOT | grep -oP '(?<=/mnt/)[^/]+'`
-- Or simply tell the user the files are in their Documents folder and list them
+Présenter avec des liens `computer://`. Pour construire le chemin Windows :
+```bash
+WIN_USER=$(echo "$SANDBOX_ROOT" | grep -oP '(?<=/mnt/)[^/]+' | head -1)
+echo "Chemin Windows : C:\\Users\\$WIN_USER\\Documents\\"
+```
 
-Present:
-- `redirect_plan.csv` — plan complet
+Fichiers livrés :
+- `redirect_plan.csv` — plan complet (toujours)
 - `redirect_plan.htaccess` — règles Apache (si demandé)
-- `redirect_plan_nginx_map.conf` — règles Nginx (si demandé)
+- `redirect_plan_map.conf` + `redirect_plan_server.conf` — règles Nginx (si demandé)
 - `redirect_plan.xlsx` — classeur Excel (si demandé)
 
 ---
 
 ## Phase 5 — Summary
 
-Always show after a successful run:
+Toujours afficher après un run réussi :
 
 ```
 ✅ Pipeline terminé — X règles de redirection générées
@@ -189,11 +240,11 @@ Répartition par type de match :
   fallback       : XX  ⚠️ aucun match trouvé
 ```
 
-Flag any rows where `source_intention ≠ target_intention` as potential SEO risk.
+Signaler toute ligne où `source_intention ≠ target_intention` comme risque SEO potentiel.
 
 ---
 
-## Partial re-run (adjust thresholds without re-crawling)
+## Re-run partiel (ajuster les seuils sans re-crawler)
 
 ```bash
 export PATH="$PATH:$HOME/.local/bin"
@@ -202,6 +253,7 @@ REPO=$(find "$SANDBOX_ROOT/Documents" -maxdepth 3 -name "pyproject.toml" \
        -exec grep -l "name = \"redirectmap\"" {} \; 2>/dev/null \
        | head -1 | xargs dirname)
 
+# Effacer uniquement les redirections, pas le crawl
 sqlite3 "$REPO/redirect.db" "DELETE FROM redirects;"
 
 redirectmap match \
@@ -213,6 +265,7 @@ redirectmap match \
 redirectmap export \
   --db "$REPO/redirect.db" \
   --formats "<formats>" \
+  --vhost \
   --output "$REPO/output" \
   --source-domain "<source_domain>" \
   --target-domain "<target_domain>"
@@ -220,34 +273,34 @@ redirectmap export \
 
 ---
 
-## Colleague onboarding
+## Onboarding collègue
 
-For a colleague to use this skill, they need to:
+Pour qu'un collègue utilise ce skill :
 
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/1o68o7/redirect-stack.git
-   ```
-2. Run the install script:
-   ```bash
-   cd redirect-stack
-   ./install.sh          # HTTP mode
-   ./install.sh --browser  # with camoufox
-   ```
-3. Select the `redirect-stack` folder in Cowork
-4. Install the `.skill` file from `skill/redirectmap.skill`
+**Windows (recommandé)** :
+1. Télécharger ou cloner le repo : `git clone https://github.com/1o68o7/redirect-stack.git`
+2. Double-cliquer sur `install.bat` (ou `install.bat --browser` pour e-commerce)
+3. Ouvrir Claude Cowork → "Sélectionner un dossier" → choisir `redirect-stack`
+4. Double-cliquer sur `skill\redirectmap.skill` pour l'installer
+5. Dire à Claude : "génère un plan de redirections"
 
-The skill auto-installs in the Cowork sandbox on first use — no manual configuration needed.
+**Linux / Mac** :
+1. `git clone https://github.com/1o68o7/redirect-stack.git && cd redirect-stack`
+2. `./install.sh` (ou `./install.sh --browser`)
+3. Même étapes Cowork (3–5)
+
+Le skill auto-installe redirectmap dans le sandbox Cowork à chaque session — aucune configuration supplémentaire.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `REPO` empty after bootstrap | Repo not in Documents — ask user to select the folder in Cowork |
-| `command not found: redirectmap` | Re-run bootstrap block; add `export PATH="$PATH:$HOME/.local/bin"` |
-| `0 pages stored` | `rm redirect.db` and retry |
-| `Aucune page cible` | Wrong `--site` flag; wipe DB and retry |
-| Browser mode needed | Provide Windows terminal commands; offer to run classify+match+export after crawl |
-| `camoufox` not in sandbox | Expected — only HTTP mode in sandbox |
+| Symptôme | Cause probable | Fix |
+|----------|---------------|-----|
+| `REPO` vide après bootstrap | Repo pas sélectionné dans Cowork | Cliquer "Sélectionner un dossier" → choisir le dossier redirect-stack |
+| `command not found: redirectmap` | PATH non exporté | Re-lancer le bloc bootstrap complet |
+| `Fichier introuvable : source.csv` | Chemin relatif sans upload | Uploader le CSV dans Cowork ou utiliser `$UPLOADS/nom.csv` |
+| `0 pages stored` | DB corrompue | `rm redirect.db` et relancer |
+| `Aucune page cible` | Mauvais flag `--site` | Wipe DB et relancer |
+| Browser mode requis | camoufox pas dans le sandbox | Donner la commande PowerShell ; reprendre classify+match+export après |
+| `camoufox` absent dans sandbox | Attendu | HTTP mode uniquement dans Cowork sandbox |

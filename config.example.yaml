@@ -60,3 +60,9 @@ export:
 
   source_domain: ""        # ex: https://old.example.com  (pour htaccess/nginx)
   target_domain: ""        # ex: https://new.example.com  (pour htaccess/nginx full URL)
+
+  # Mode vhost — règles portables staging/prod sans domaine codé en dur
+  # htaccess : RewriteRule ^old$ https://%{HTTP_HOST}/new [R=301,L]
+  # nginx    : return 301 https://$host/new-path;
+  # Mettre à true si les mêmes règles doivent fonctionner sur plusieurs environnements
+  vhost: false
