@@ -1,12 +1,12 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-:: ─────────────────────────────────────────────────────────────────────────────
-:: redirectmap — Windows install script
+:: -----------------------------------------------------------------------------
+:: redirectmap -- Windows install script
 :: Usage : double-cliquer ou lancer depuis PowerShell
 ::   install.bat           -> mode HTTP uniquement
 ::   install.bat --browser -> avec camoufox (Firefox stealth, e-commerce)
-:: ─────────────────────────────────────────────────────────────────────────────
+:: -----------------------------------------------------------------------------
 
 set INSTALL_BROWSER=false
 for %%A in (%*) do (
@@ -14,18 +14,13 @@ for %%A in (%*) do (
 )
 
 echo.
-echo  ██████╗ ███████╗██████╗ ██╗██████╗ ███████╗ ██████╗████████╗
-echo  ██╔══██╗██╔════╝██╔══██╗██║██╔══██╗██╔════╝██╔════╝╚══██╔══╝
-echo  ██████╔╝█████╗  ██║  ██║██║██████╔╝█████╗  ██║        ██║
-echo  ██╔══██╗██╔══╝  ██║  ██║██║██╔══██╗██╔══╝  ██║        ██║
-echo  ██║  ██║███████╗██████╔╝██║██║  ██║███████╗╚██████╗   ██║
-echo  ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝   ╚═╝
-echo.
-echo  Outil de migration d'URLs — generation de plans de redirections 301
-echo  ─────────────────────────────────────────────────────────────────────
+echo  ================================================
+echo    REDIRECTMAP  ^|  redirect-stack installer
+echo    Outil de migration d'URLs -- redirections 301
+echo  ================================================
 echo.
 
-:: ── 1. Trouver Python ────────────────────────────────────────────────────────
+:: -- 1. Trouver Python ---------------------------------------------------------
 
 set PYTHON_CMD=
 
@@ -68,7 +63,7 @@ exit /b 1
 
 :python_found
 
-:: ── 2. Verifier la version (>= 3.10) ─────────────────────────────────────────
+:: -- 2. Verifier la version (>= 3.10) -----------------------------------------
 
 for /f "tokens=2 delims= " %%V in ('!PYTHON_CMD! --version 2^>^&1') do set RAW_VER=%%V
 for /f "tokens=1,2 delims=." %%A in ("!RAW_VER!") do (
@@ -89,7 +84,7 @@ if !MAJOR! EQU 3 if !MINOR! LSS 10 (
 
 echo [OK] Version Python compatible : !RAW_VER!
 
-:: ── 3. Creer le venv ─────────────────────────────────────────────────────────
+:: -- 3. Creer le venv ----------------------------------------------------------
 
 echo.
 echo =^> Creation de l'environnement virtuel .venv ...
@@ -104,7 +99,7 @@ if exist .venv (
     )
 )
 
-:: ── 4. Installer redirectmap ──────────────────────────────────────────────────
+:: -- 4. Installer redirectmap --------------------------------------------------
 
 echo.
 if "!INSTALL_BROWSER!"=="true" (
@@ -132,7 +127,7 @@ if "!INSTALL_BROWSER!"=="true" (
     )
 )
 
-:: ── 5. Verifier l'installation ────────────────────────────────────────────────
+:: -- 5. Verifier l'installation ------------------------------------------------
 
 echo.
 echo =^> Verification ...
@@ -143,22 +138,22 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: ── 6. Instructions finales ───────────────────────────────────────────────────
+:: -- 6. Instructions finales ---------------------------------------------------
 
 echo.
-echo ─────────────────────────────────────────────────────────────────────────────
+echo =============================================================================
 echo  INSTALLATION TERMINEE
-echo ─────────────────────────────────────────────────────────────────────────────
+echo =============================================================================
 echo.
-echo  OPTION A — via Claude Cowork [recommande, sans terminal]
-echo  ─────────────────────────────────────────────────────────
+echo  OPTION A -- via Claude Cowork [recommande, sans terminal]
+echo  -----------------------------------------------------------
 echo  1. Ouvrez Claude Cowork
 echo  2. Cliquez "Selectionner un dossier" et choisissez ce dossier
 echo  3. Double-cliquez sur skill\redirectmap.skill pour l'installer
 echo  4. Dites a Claude : "genere un plan de redirections"
 echo.
-echo  OPTION B — via terminal PowerShell
-echo  ─────────────────────────────────
+echo  OPTION B -- via terminal PowerShell
+echo  -----------------------------------
 echo  Activez le venv :
 echo    .venv\Scripts\activate
 echo.
@@ -191,6 +186,6 @@ echo  Option --vhost [staging/prod sans domaine code en dur] :
 echo    Ajoutez --vhost a la commande ci-dessus.
 echo    Exemple : RewriteRule ^old$ https://%%{HTTP_HOST}/new [R=301,L]
 echo.
-echo ─────────────────────────────────────────────────────────────────────────────
+echo =============================================================================
 echo.
 pause
