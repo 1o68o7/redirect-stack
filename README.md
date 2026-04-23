@@ -146,6 +146,8 @@ All crawl data, classifications, and redirect rules are stored in a single **SQL
 `install.bat` auto-detects Python, creates the `.venv`, installs all dependencies,
 and prints next steps for both Cowork and terminal use.
 
+**To uninstall:** double-click `uninstall.bat` — removes `.venv`, `redirect.db` and `output/` after confirmation. Source code is never touched.
+
 ### Linux / Mac
 
 ```bash

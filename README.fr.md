@@ -147,6 +147,8 @@ Toutes les données de crawl, classifications et règles de redirection sont sto
 `install.bat` détecte Python automatiquement, crée le `.venv`, installe toutes les dépendances
 et affiche les prochaines étapes pour Cowork et le terminal.
 
+**Pour désinstaller :** double-cliquer sur `uninstall.bat` — supprime `.venv`, `redirect.db` et `output/` après confirmation. Le code source n'est jamais touché.
+
 ### Linux / Mac
 
 ```bash
