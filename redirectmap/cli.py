@@ -275,6 +275,22 @@ def export(db, output, formats, source_domain, target_domain, vhost, cfg_path):
     tgt_domain = target_domain or exp_cfg.get("target_domain", "")
     fmt_list = _parse_formats(formats)
 
+    # Guard: abort early if there are no redirects to export
+    import sqlite3 as _sqlite3
+    _db_path = Path(db)
+    if not _db_path.exists():
+        console.print(f"[red]DB introuvable : {db}[/red]")
+        sys.exit(1)
+    with _sqlite3.connect(str(_db_path)) as _chk:
+        _n = _chk.execute("SELECT COUNT(*) FROM redirects").fetchone()[0]
+    if _n == 0:
+        console.print(
+            "[yellow]⚠️  Aucune règle de redirection dans la DB — export annulé.\n"
+            "   Cause probable : le matching n'a pas abouti (DB corrompue ou crawl incomplet).\n"
+            "   Conseil : supprimez redirect.db et relancez le pipeline complet.[/yellow]"
+        )
+        sys.exit(1)
+
     vhost_label = " [bold magenta]+vhost[/bold magenta]" if vhost else ""
     console.print(f"[cyan]Export → [bold]{output}[/bold] | formats : {', '.join(fmt_list)}{vhost_label}[/cyan]")
 
@@ -311,7 +327,9 @@ def export(db, output, formats, source_domain, target_domain, vhost, cfg_path):
 @cli.command()
 @click.option("--source-urls",   required=True,  help="Fichier CSV/TXT des URLs sources.")
 @click.option("--target-urls",   required=True,  help="Fichier CSV/TXT des URLs cibles.")
-@click.option("--db",            default="redirect.db", show_default=True)
+@click.option("--db",            default=None, show_default=True,
+              help="Chemin de la DB SQLite. Défaut: fichier temporaire dans /tmp "
+                   "(évite les problèmes de permissions sur filesystems montés).")
 @click.option("--output",  "-o", default="./output",    show_default=True)
 @click.option("--fallback",      default="/",           show_default=True)
 @click.option("--source-domain", default="")
@@ -327,8 +345,19 @@ def export(db, output, formats, source_domain, target_domain, vhost, cfg_path):
 def run(source_urls, target_urls, db, output, fallback, source_domain, target_domain,
         formats, browser, vhost, no_sitemaps, cfg_path):
     """Pipeline complet : crawl source + target → classify → match → export."""
+    import tempfile, os
     cfg = load_config(cfg_path)
     ctx = click.get_current_context()
+
+    # Si --db non fourni, utiliser un fichier temporaire dans /tmp
+    # Cela évite les erreurs "Operation not permitted" sur filesystems FUSE/montés.
+    _tmp_db = None
+    if db is None:
+        _tmp_fd, db = tempfile.mkstemp(suffix=".db", prefix="redirectmap_")
+        os.close(_tmp_fd)
+        os.unlink(db)  # laisser redirectmap créer la DB proprement
+        _tmp_db = db
+        console.print(f"[dim]DB temporaire : {db}[/dim]")
 
     console.rule("[bold cyan]Étape 1/4 — Crawl source[/bold cyan]")
     ctx.invoke(crawl, urls=source_urls, seed=(), site="source",
@@ -356,6 +385,13 @@ def run(source_urls, target_urls, db, output, fallback, source_domain, target_do
                vhost=vhost, cfg_path=cfg_path)
 
     console.rule("[bold green]✓ Pipeline terminé[/bold green]")
+
+    # Nettoyage de la DB temporaire si auto-générée
+    if _tmp_db:
+        try:
+            Path(_tmp_db).unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 # ─── stats ────────────────────────────────────────────────────────────────────

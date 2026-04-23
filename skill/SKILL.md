@@ -125,12 +125,11 @@ ls -lh "$UPLOADS/"
 > (glisser-déposer dans la conversation) OU être dans le dossier sélectionné.
 > Ne jamais utiliser un chemin Windows comme `--source-urls` — utiliser `$UPLOADS/nom_fichier.csv`.
 
-### Supprimer la DB précédente (toujours repartir à zéro)
-```bash
-rm -f "$WORKDIR/redirect.db"
-```
-
 ### Run — HTTP mode (dans le sandbox Cowork)
+
+> ℹ️ `--db` n'est plus nécessaire dans `run` : une DB temporaire est créée automatiquement
+> dans `/tmp` pour éviter les erreurs de permissions FUSE sur le filesystem monté.
+
 ```bash
 redirectmap run \
   --source-urls "$UPLOADS/<source_file>" \
@@ -194,8 +193,10 @@ redirectmap run `
 > ```
 
 ### Stats après le run
+> La DB tmp est supprimée automatiquement après le run. Pour consulter les stats,
+> passer `--db /tmp/mon_run.db` au `run` et utiliser ce chemin ici.
 ```bash
-redirectmap stats --db "$WORKDIR/redirect.db"
+redirectmap stats --db "/tmp/mon_run.db"
 ```
 
 ---

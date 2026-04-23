@@ -90,10 +90,18 @@ def run_matching(db_path: str | Path, cfg: dict, classify_cfg: dict | None = Non
         target_pages = [dict(r) for r in raw.execute("SELECT * FROM pages WHERE site='target'").fetchall()]
 
     if not source_pages:
-        logger.warning("Aucune page source — matching annulé.")
+        logger.warning(
+            "Aucune page source dans la DB (site='source'). "
+            "La DB est peut-être corrompue ou le crawl n'a pas abouti. "
+            "Conseil : supprimez redirect.db et relancez le pipeline."
+        )
         return {}
     if not target_pages:
-        logger.warning("Aucune page cible — matching annulé.")
+        logger.warning(
+            "Aucune page cible dans la DB (site='target'). "
+            "La DB est peut-être corrompue ou le crawl n'a pas abouti. "
+            "Conseil : supprimez redirect.db et relancez le pipeline."
+        )
         return {}
 
     logger.info("Matching : %d sources → %d cibles", len(source_pages), len(target_pages))

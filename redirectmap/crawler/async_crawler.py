@@ -34,6 +34,32 @@ def _content_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8", errors="replace")).hexdigest()
 
 
+def _make_stub_page(url: str, depth: int, site: str) -> dict:
+    """
+    Minimal page record for URLs that could not be fetched (403, proxy block, etc.).
+    Preserves URL path info so exact/fuzzy/hierarchical matching still works.
+    body_text is empty — cosine similarity will not match these pages.
+    """
+    from redirectmap.matcher.normalizer import normalize_url, url_hash, path_segments_json
+    parsed = urlparse(url)
+    slug = parsed.path.rstrip("/").split("/")[-1] if parsed.path else ""
+    return {
+        "url": url,
+        "normalized_url": normalize_url(url),
+        "url_hash": url_hash(url),
+        "path_segments": path_segments_json(url),
+        "site": site,
+        "status_code": 0,
+        "title": slug.replace("-", " "),   # slug as fallback title for cosine
+        "description": "",
+        "h1": "",
+        "body_text": "",
+        "content_hash": _content_hash(""),
+        "depth": depth,
+        "structured_data": "{}",
+    }
+
+
 def _extract_meta(soup: BeautifulSoup, name: str) -> str:
     tag = soup.find("meta", attrs={"name": name}) or soup.find("meta", attrs={"property": name})
     if tag and tag.get("content"):
@@ -186,6 +212,12 @@ class AsyncCrawler:
 
             except Exception as e:
                 logger.warning("Error fetching %s: %s", url, e)
+                # Insert a minimal record so path-based matching still works
+                # even when the page body cannot be fetched (403, proxy block, etc.)
+                page_data = _make_stub_page(url, depth, self.site)
+                self._page_buffer.append(page_data)
+                if len(self._page_buffer) >= self._buffer_size:
+                    self._flush(conn)
 
             return []
 
@@ -223,9 +255,14 @@ class AsyncCrawler:
         }
 
         async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
-            # Optionally expand seed with sitemaps
+            # Optionally expand seed with sitemaps — once per unique domain
             if use_sitemaps:
+                seen_domains: set[str] = set()
                 for seed in list(seed_urls):
+                    domain = urlparse(seed).netloc
+                    if domain in seen_domains:
+                        continue
+                    seen_domains.add(domain)
                     sitemaps = await discover_sitemaps(seed, client)
                     for sm_url in sitemaps:
                         sitemap_urls = await fetch_urls_from_sitemap(sm_url, client)
